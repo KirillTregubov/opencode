@@ -202,6 +202,17 @@ function getDirectory(path: string | undefined) {
   return relativizeProjectPath(_getDirectory(path), data.directory)
 }
 
+function openProjectFile(
+  path: string | undefined,
+  directory: string,
+  openFilePath?: (input: { path: string }) => void,
+) {
+  if (!path) return
+  const file = relativizeProjectPaths(path, directory).replace(/^\//, "")
+  if (!file) return
+  openFilePath?.({ path: file })
+}
+
 import type { IconProps } from "./icon"
 
 export type ToolInfo = {
@@ -1111,7 +1122,12 @@ export const ToolRegistry = {
   render: getTool,
 }
 
-function ToolFileAccordion(props: { path: string; actions?: JSX.Element; children: JSX.Element }) {
+function ToolFileAccordion(props: {
+  path: string
+  actions?: JSX.Element
+  children: JSX.Element
+  onPathClick?: () => void
+}) {
   const value = createMemo(() => props.path || "tool-file")
 
   return (
@@ -1131,7 +1147,17 @@ function ToolFileAccordion(props: { path: string; actions?: JSX.Element; childre
                   <Show when={props.path.includes("/")}>
                     <span data-slot="apply-patch-directory">{`\u202A${getDirectory(props.path)}\u202C`}</span>
                   </Show>
-                  <span data-slot="apply-patch-filename">{getFilename(props.path)}</span>
+                  <span
+                    data-slot="apply-patch-filename"
+                    classList={{ clickable: !!props.onPathClick }}
+                    onClick={(event) => {
+                      if (!props.onPathClick) return
+                      event.stopPropagation()
+                      props.onPathClick()
+                    }}
+                  >
+                    {getFilename(props.path)}
+                  </span>
                 </div>
               </div>
               <div data-slot="apply-patch-trigger-actions">
@@ -1701,6 +1727,7 @@ ToolRegistry.register({
 ToolRegistry.register({
   name: "edit",
   render(props) {
+    const data = useData()
     const i18n = useI18n()
     const fileComponent = useFileComponent()
     const diagnostics = createMemo(() => getDiagnostics(props.metadata.diagnostics, props.input.filePath))
@@ -1741,6 +1768,7 @@ ToolRegistry.register({
           <Show when={path()}>
             <ToolFileAccordion
               path={path()}
+              onPathClick={() => openProjectFile(path(), data.directory, data.openFilePath)}
               actions={
                 <Show when={!pending() && props.metadata.filediff}>{(diff) => <DiffChanges changes={diff()} />}</Show>
               }
@@ -1771,6 +1799,7 @@ ToolRegistry.register({
 ToolRegistry.register({
   name: "write",
   render(props) {
+    const data = useData()
     const i18n = useI18n()
     const fileComponent = useFileComponent()
     const diagnostics = createMemo(() => getDiagnostics(props.metadata.diagnostics, props.input.filePath))
@@ -1805,7 +1834,10 @@ ToolRegistry.register({
           }
         >
           <Show when={props.input.content && path()}>
-            <ToolFileAccordion path={path()}>
+            <ToolFileAccordion
+              path={path()}
+              onPathClick={() => openProjectFile(path(), data.directory, data.openFilePath)}
+            >
               <div data-component="write-content">
                 <Dynamic
                   component={fileComponent}
@@ -1842,6 +1874,7 @@ interface ApplyPatchFile {
 ToolRegistry.register({
   name: "apply_patch",
   render(props) {
+    const data = useData()
     const i18n = useI18n()
     const fileComponent = useFileComponent()
     const files = createMemo(() => (props.metadata.files ?? []) as ApplyPatchFile[])
@@ -1918,7 +1951,16 @@ ToolRegistry.register({
                                     <Show when={file.relativePath.includes("/")}>
                                       <span data-slot="apply-patch-directory">{`\u202A${getDirectory(file.relativePath)}\u202C`}</span>
                                     </Show>
-                                    <span data-slot="apply-patch-filename">{getFilename(file.relativePath)}</span>
+                                    <span
+                                      data-slot="apply-patch-filename"
+                                      class="clickable"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        openProjectFile(file.relativePath, data.directory, data.openFilePath)
+                                      }}
+                                    >
+                                      {getFilename(file.relativePath)}
+                                    </span>
                                   </div>
                                 </div>
                                 <div data-slot="apply-patch-trigger-actions">
@@ -2002,6 +2044,7 @@ ToolRegistry.register({
             >
               <ToolFileAccordion
                 path={file().relativePath}
+                onPathClick={() => openProjectFile(file().relativePath, data.directory, data.openFilePath)}
                 actions={
                   <Switch>
                     <Match when={file().type === "add"}>
