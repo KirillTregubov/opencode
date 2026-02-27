@@ -208,7 +208,7 @@ function openProjectFile(
   openFilePath?: (input: { path: string }) => void,
 ) {
   if (!path) return
-  const file = relativizeProjectPaths(path, directory).replace(/^\//, "")
+  const file = relativizeProjectPath(path, directory).replace(/^\//, "")
   if (!file) return
   openFilePath?.({ path: file })
 }
