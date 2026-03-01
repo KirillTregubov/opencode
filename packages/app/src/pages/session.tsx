@@ -718,6 +718,7 @@ export default function Page() {
 
   const openReviewFile = createOpenReviewFile({
     showAllFiles,
+    openReviewPanel,
     tabForPath: file.tab,
     openTab: tabs().open,
     setActive: tabs().setActive,
